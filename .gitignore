@@ -6,3 +6,4 @@
 
 # Verilator
 obj_dir/
+wave.fst
