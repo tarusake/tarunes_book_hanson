@@ -69,6 +69,12 @@ module cpu (
                     opcode_t::LDA_ABX: {
                         cpubus.addr = reg_pc + 1;
                     }
+                    opcode_t::BNE: {
+                        cpubus.addr = reg_pc + 1;
+                    }
+                    opcode_t::JMP_ABS: {
+                        cpubus.addr = reg_pc + 1;
+                    }
                     default: {
                         cpubus.addr = 0;
                     }
@@ -80,6 +86,9 @@ module cpu (
                         cpubus.addr = reg_pc + 2;
                     }
                     opcode_t::LDA_ABX: {
+                        cpubus.addr = reg_pc + 2;
+                    }
+                    opcode_t::JMP_ABS: {
                         cpubus.addr = reg_pc + 2;
                     }
                 }
@@ -179,6 +188,16 @@ module cpu (
                             opcode = cpubus.rdata;
                             state  = cpu_state_t::OP1;
                         }
+                        opcode_t::BNE: {
+                            $display("[DECODE] PC=%04h OPCODE=BNE", reg_pc);
+                            opcode = cpubus.rdata;
+                            state  = cpu_state_t::OP1;
+                        }
+                        opcode_t::JMP_ABS: {
+                            $display("[DECODE] PC=%04h OPCODE=JMP_ABS", reg_pc);
+                            opcode = cpubus.rdata;
+                            state  = cpu_state_t::OP1;
+                        }
                         default: {
                             $display("[DECODE] Unknown Opcode : PC=%04h OPCODE=%02h", reg_pc, cpubus.rdata);
                         }
@@ -215,6 +234,19 @@ module cpu (
                             op1   = cpubus.rdata;
                             state = cpu_state_t::OP2;
                         }
+                        opcode_t::BNE: {
+                            $display("[EXECUTE] PC=%04h OPCODE=BNE", reg_pc);
+                            if reg_p[1] == 0 {
+                                reg_pc = $signed(reg_pc) + 2 + {cpubus.rdata[7] repeat 8, cpubus.rdata};
+                            } else {
+                                reg_pc = reg_pc + 2;
+                            }
+                            state = cpu_state_t::FETCH;
+                        }
+                        opcode_t::JMP_ABS: {
+                            op1   = cpubus.rdata;
+                            state = cpu_state_t::OP2;
+                        }
                     }
                 }
                 cpu_state_t::OP2: {
@@ -225,6 +257,11 @@ module cpu (
                         }
                         opcode_t::LDA_ABX: {
                             state = cpu_state_t::EXEC;
+                        }
+                        opcode_t::JMP_ABS: {
+                            $display("[EXECUTE] PC=%04h OPCODE=JMP_ABS", reg_pc);
+                            reg_pc = {cpubus.rdata, op1};
+                            state  = cpu_state_t::FETCH;
                         }
                     }
                 }
