@@ -59,7 +59,13 @@ module cpu (
                     opcode_t::LDA_IMM: {
                         cpubus.addr = reg_pc + 1;
                     }
+                    default: {
+                        cpubus.addr = 0;
+                    }
                 }
+            }
+            default: {
+                cpubus.addr = 0;
             }
         }
     }
@@ -107,6 +113,9 @@ module cpu (
                             $display("[DECODE] PC=%04h OPCODE=LDA_IMM", reg_pc);
                             opcode = cpubus.rdata;
                             state  = cpu_state_t::OP1;
+                        }
+                        default: {
+                            $display("[DECODE] Unknown Opcode : PC=%04h OPCODE=%02h", reg_pc, cpubus.rdata);
                         }
                     }
                 }
