@@ -2,7 +2,7 @@ VERILATOR := verilator
 VERILATOR_FLAGS := -Wall --trace-fst --Wno-fatal
 
 RTL_DIR := target
-RTL_SRCS := $(wildcard $(RTL_DIR)/*.sv)
+RTL_SRCS = $(wildcard $(RTL_DIR)/*.sv)
 TOP := tarunes_top
 TB_CPP := src/tb_top.cpp
 ROM_HEX ?= helloworld_prg.hex

@@ -1,6 +1,7 @@
 module ppu (
     clk        : input   clock                     ,
     rst        : input   reset                     ,
+    cpubus     : modport bus_if::<8, 3>::slave     ,
     ppubus     : modport bus_if::<8, 14>::master   ,
     scanline   : output  logic                  <9>,
     cycle      : output  logic                  <9>,
@@ -9,6 +10,8 @@ module ppu (
     pixel_g    : output  logic                  <8>,
     pixel_b    : output  logic                  <8>,
 ) {
+    const PPUDATA_ADDR: logic<3> = 3'd7;
+
     const NES_PALETTE: logic<24> [64] = '{
         24'h666666, 24'h002A88, 24'h1412A7, 24'h3B00A4, 24'h5C007E, 24'h6E0040, 24'h6C0600, 24'h561D00, 24'h333500,
         24'h0B4800, 24'h005200, 24'h004F08, 24'h00404D, 24'h000000, 24'h000000, 24'h000000, 24'hADADAD, 24'h155FD9,
@@ -20,12 +23,55 @@ module ppu (
         24'h000000,
     };
 
-    var palette_color: logic<24>;
+    var palette_color  : logic<24>     ;
+    var palette_ram    : logic<8>  [32];
+    var reg_w          : logic         ;
+    var reg_v          : logic<16>     ;
+    var ppu_addr_render: logic<14>     ;
+
+    function is_palette_addr (
+        addr: input logic<16>,
+    ) -> logic {
+        return addr[15:8] == 8'h3F;
+    }
 
     always_comb {
-        ppubus.addr  = 0;
+        cpubus.rdata = 0;
+        ppubus.addr  = ppu_addr_render;
         ppubus.wdata = 0;
         ppubus.wen   = 0;
+
+        if (cpubus.wen && cpubus.addr == PPUDATA_ADDR && !is_palette_addr(reg_v)) {
+            ppubus.addr  = reg_v[13:0];
+            ppubus.wen   = 1;
+            ppubus.wdata = cpubus.wdata;
+        }
+    }
+
+    always_ff {
+        if_reset {
+            reg_w           = 0;
+            reg_v           = 0;
+            ppu_addr_render = 0;
+            palette_ram     = '{default: 8'h00};
+        } else if cpubus.wen {
+            case (cpubus.addr) {
+                3'd6: {
+                    reg_w = ~reg_w;
+                    if !reg_w {
+                        reg_v[15:8] = cpubus.wdata;
+                    } else {
+                        reg_v[7:0] = cpubus.wdata;
+                    }
+                }
+                PPUDATA_ADDR: {
+                    if is_palette_addr(reg_v) {
+                        palette_ram[reg_v[4:0]] = cpubus.wdata;
+                    }
+                    reg_v = reg_v + 1;
+                }
+            }
+        }
     }
 
     always_ff {
