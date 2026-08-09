@@ -1,7 +1,11 @@
-VERILATOR_FLAGS := -Wall --trace-fst --Wno-fatal --top-module tb_top --binary
+VERILATOR := verilator
+VERILATOR_FLAGS := -Wall --trace-fst --Wno-fatal
 
 RTL_DIR := target
 RTL_SRCS := $(wildcard $(RTL_DIR)/*.sv)
+TOP := tarunes_top
+TB_CPP := src/tb_top.cpp
+ROM_HEX ?= helloworld_prg.hex
 
 all: build
 
@@ -12,12 +16,17 @@ veryl-build: veryl-fmt
 	veryl build
 
 build: veryl-build
-	verilator $(VERILATOR_FLAGS) \
+	$(VERILATOR) $(VERILATOR_FLAGS) \
+		--cc $(RTL_SRCS) \
+		--top-module $(TOP) \
+		--exe $(TB_CPP) \
+		-GPROM_PATH='"$(ROM_HEX)"' \
 		-I$(RTL_DIR) \
-		src/tb_top.sv $(RTL_SRCS)
+		-CFLAGS "-std=c++17"
+	$(MAKE) -C obj_dir -f V$(TOP).mk
 
 run:
-	./obj_dir/Vtb_top
+	./obj_dir/V$(TOP)
 
 clean:
 	rm -rf obj_dir *.fst tb_top
