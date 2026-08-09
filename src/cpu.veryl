@@ -60,6 +60,9 @@ module cpu (
                     opcode_t::LDA_IMM: {
                         cpubus.addr = reg_pc + 1;
                     }
+                    opcode_t::LDY_IMM: {
+                        cpubus.addr = reg_pc + 1;
+                    }
                     opcode_t::STA_ABS: {
                         cpubus.addr = reg_pc + 1;
                     }
@@ -130,6 +133,11 @@ module cpu (
                             opcode = cpubus.rdata;
                             state  = cpu_state_t::OP1;
                         }
+                        opcode_t::LDY_IMM: {
+                            $display("[DECODE] PC=%04h OPCODE=LDY_IMM", reg_pc);
+                            opcode = cpubus.rdata;
+                            state  = cpu_state_t::OP1;
+                        }
                         opcode_t::STA_ABS: {
                             $display("[DECODE] PC=%04h OPCODE=STA_ABS", reg_pc);
                             opcode = cpubus.rdata;
@@ -151,6 +159,13 @@ module cpu (
                         }
                         opcode_t::LDA_IMM: {
                             reg_a    = cpubus.rdata;
+                            reg_p[1] = (cpubus.rdata == 0);
+                            reg_p[7] = cpubus.rdata[7];
+                            reg_pc   = reg_pc + 2;
+                            state    = cpu_state_t::FETCH;
+                        }
+                        opcode_t::LDY_IMM: {
+                            reg_y    = cpubus.rdata;
                             reg_p[1] = (cpubus.rdata == 0);
                             reg_p[7] = cpubus.rdata[7];
                             reg_pc   = reg_pc + 2;
