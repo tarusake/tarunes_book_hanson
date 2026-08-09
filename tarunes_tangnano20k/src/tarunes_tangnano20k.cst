@@ -1,0 +1,43 @@
+// HDMI/TMDS 出力は P/N を別ポートとして個別制約せず、
+// P 側ポートに P,N の物理ピンをペアで指定する。
+// IO_TYPE=LVDS25 により GOWIN の差動出力として扱わせる。
+IO_LOC "O_tmds_clk_p" 33,34;
+IO_PORT "O_tmds_clk_p" IO_TYPE=LVDS25 PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+IO_LOC "O_tmds_data_p[0]" 35,36;
+IO_PORT "O_tmds_data_p[0]" IO_TYPE=LVDS25 PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+IO_LOC "O_tmds_data_p[1]" 37,38;
+IO_PORT "O_tmds_data_p[1]" IO_TYPE=LVDS25 PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+IO_LOC "O_tmds_data_p[2]" 39,40;
+IO_PORT "O_tmds_data_p[2]" IO_TYPE=LVDS25 PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+// LED0..LED5 は +3.3V 側に接続されているため active-low。
+// FPGA が 0 を出すと点灯、1 を出すと消灯する。
+// 出力なので内部プルは不要。基板の LED 番号と O_led のビット番号を合わせる。
+IO_LOC "O_led[0]" 15;
+IO_PORT "O_led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "O_led[1]" 16;
+IO_PORT "O_led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "O_led[2]" 17;
+IO_PORT "O_led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "O_led[3]" 18;
+IO_PORT "O_led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "O_led[4]" 19;
+IO_PORT "O_led[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "O_led[5]" 20;
+IO_PORT "O_led[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// S1/S2 は押すと +3.3V、離すと外部抵抗なしで浮く回路。
+// pin88 が S1(reset)、pin87 が S2(key)。
+// 100nF は GND へのコンデンサなので DC のプルダウンにはならない。
+// そのため FPGA 内部プルダウンを有効にし、押下=1、非押下=0 として扱う。
+// S1 reset: pin88
+IO_LOC "I_rst" 88;
+IO_PORT "I_rst" IO_TYPE=LVCMOS33 PULL_MODE=DOWN BANK_VCCIO=3.3;
+// S2 key: pin87
+IO_LOC "I_key" 87;
+IO_PORT "I_key" IO_TYPE=LVCMOS33 PULL_MODE=DOWN BANK_VCCIO=3.3;
+
+// 27MHz オシレータ出力が 22ohm 経由で入力されるクロック。
+// 能動的に駆動される信号なので内部プルは不要。
+IO_LOC "I_clk" 4;
+IO_PORT "I_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
