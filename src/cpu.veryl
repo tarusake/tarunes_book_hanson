@@ -1,0 +1,59 @@
+module cpu (
+    clk   : input   clock                  ,
+    rst   : input   reset                  ,
+    cpubus: modport bus_if::<8, 16>::master,
+) {
+    // CPU Registers
+    var reg_a : logic<8> ; // Accumulator
+    var reg_x : logic<8> ; // X register
+    var reg_y : logic<8> ; // Y register
+    var reg_sp: logic<8> ; // Stack pointer
+    var reg_pc: logic<16>; // Program counter
+    var reg_p : logic<8> ; // Status Register
+    enum cpu_state_t {
+        RESET0,
+        RESET1,
+        RESET2,
+        FETCH,
+        DECODE,
+        OP1,
+        OP2,
+        EXEC,
+    }
+    var state: cpu_state_t;
+    always_comb {
+        cpubus.addr  = 0;
+        cpubus.wen   = 0;
+        cpubus.wdata = 0;
+        case (state) {
+            cpu_state_t::RESET0: {
+                cpubus.addr = 16'hFFFC;
+            }
+            cpu_state_t::RESET1: {
+                cpubus.addr = 16'hFFFD;
+            }
+            cpu_state_t::FETCH: {
+                cpubus.addr = reg_pc;
+            }
+        }
+    }
+    always_ff {
+        if_reset {
+            state = cpu_state_t::RESET0;
+        } else {
+            case (state) {
+                cpu_state_t::RESET0: {
+                    state = cpu_state_t::RESET1;
+                }
+                cpu_state_t::RESET1: {
+                    reg_pc[7:0] = cpubus.rdata;
+                    state       = cpu_state_t::RESET2;
+                }
+                cpu_state_t::RESET2: {
+                    reg_pc[15:8] = cpubus.rdata;
+                    state        = cpu_state_t::FETCH;
+                }
+            }
+        }
+    }
+}
