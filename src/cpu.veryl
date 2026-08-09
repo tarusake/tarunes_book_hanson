@@ -66,21 +66,34 @@ module cpu (
                     opcode_t::STA_ABS: {
                         cpubus.addr = reg_pc + 1;
                     }
+                    opcode_t::LDA_ABX: {
+                        cpubus.addr = reg_pc + 1;
+                    }
                     default: {
                         cpubus.addr = 0;
                     }
                 }
             }
             cpu_state_t::OP1: {
-                if opcode == opcode_t::STA_ABS {
-                    cpubus.addr = reg_pc + 2;
+                case (opcode) {
+                    opcode_t::STA_ABS: {
+                        cpubus.addr = reg_pc + 2;
+                    }
+                    opcode_t::LDA_ABX: {
+                        cpubus.addr = reg_pc + 2;
+                    }
                 }
             }
             cpu_state_t::OP2: {
-                if opcode == opcode_t::STA_ABS {
-                    cpubus.addr  = {cpubus.rdata, op1};
-                    cpubus.wdata = reg_a;
-                    cpubus.wen   = 1'b1;
+                case (opcode) {
+                    opcode_t::STA_ABS: {
+                        cpubus.addr  = {cpubus.rdata, op1};
+                        cpubus.wdata = reg_a;
+                        cpubus.wen   = 1'b1;
+                    }
+                    opcode_t::LDA_ABX: {
+                        cpubus.addr = {cpubus.rdata, op1} + reg_x;
+                    }
                 }
             }
             default: {
@@ -161,6 +174,11 @@ module cpu (
                             opcode = cpubus.rdata;
                             state  = cpu_state_t::OP1;
                         }
+                        opcode_t::LDA_ABX: {
+                            $display("[DECODE] PC=%04h OPCODE=LDA_ABX", reg_pc);
+                            opcode = cpubus.rdata;
+                            state  = cpu_state_t::OP1;
+                        }
                         default: {
                             $display("[DECODE] Unknown Opcode : PC=%04h OPCODE=%02h", reg_pc, cpubus.rdata);
                         }
@@ -193,6 +211,10 @@ module cpu (
                             op1   = cpubus.rdata;
                             state = cpu_state_t::OP2;
                         }
+                        opcode_t::LDA_ABX: {
+                            op1   = cpubus.rdata;
+                            state = cpu_state_t::OP2;
+                        }
                     }
                 }
                 cpu_state_t::OP2: {
@@ -200,6 +222,20 @@ module cpu (
                         opcode_t::STA_ABS: {
                             reg_pc = reg_pc + 3;
                             state  = cpu_state_t::FETCH;
+                        }
+                        opcode_t::LDA_ABX: {
+                            state = cpu_state_t::EXEC;
+                        }
+                    }
+                }
+                cpu_state_t::EXEC: {
+                    case (opcode) {
+                        opcode_t::LDA_ABX: {
+                            reg_a    = cpubus.rdata;
+                            reg_p[1] = (cpubus.rdata == 0);
+                            reg_p[7] = cpubus.rdata[7];
+                            reg_pc   = reg_pc + 3;
+                            state    = cpu_state_t::FETCH;
                         }
                     }
                 }
