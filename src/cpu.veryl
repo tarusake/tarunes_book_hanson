@@ -10,6 +10,22 @@ module cpu (
     var reg_sp: logic<8> ; // Stack pointer
     var reg_pc: logic<16>; // Program counter
     var reg_p : logic<8> ; // Status Register
+
+    enum opcode_t: logic<8> {
+        SEI = 8'h78,
+        TXS = 8'h9A,
+        INX = 8'hE8,
+        DEY = 8'h88,
+        LDA_IMM = 8'hA9,
+        LDA_ABX = 8'hBD,
+        LDX_IMM = 8'hA2,
+        LDY_IMM = 8'hA0,
+        STA_ABS = 8'h8D,
+        BNE = 8'hD0,
+        JMP_ABS = 8'h4C,
+    }
+    var opcode: logic<8>;
+
     enum cpu_state_t {
         RESET0,
         RESET1,
@@ -35,11 +51,20 @@ module cpu (
             cpu_state_t::FETCH: {
                 cpubus.addr = reg_pc;
             }
+            cpu_state_t::DECODE: {
+                case (cpubus.rdata) {
+                    opcode_t::LDX_IMM: {
+                        cpubus.addr = reg_pc + 1;
+                    }
+                }
+            }
         }
     }
     always_ff {
         if_reset {
-            state = cpu_state_t::RESET0;
+            state  = cpu_state_t::RESET0;
+            reg_pc = 0;
+            reg_p  = 'h24;
         } else {
             case (state) {
                 cpu_state_t::RESET0: {
@@ -56,8 +81,33 @@ module cpu (
                 cpu_state_t::FETCH: {
                     state = cpu_state_t::DECODE;
                 }
+                cpu_state_t::DECODE: {
+                    case (cpubus.rdata) {
+                        opcode_t::SEI: {
+                            $display("[DECODE] PC=%04h OPCODE=SEI", reg_pc);
+                            reg_p[2] = 1'b1;
+                            state    = cpu_state_t::FETCH;
+                            reg_pc   = reg_pc + 1;
+                        }
+                        opcode_t::LDX_IMM: {
+                            $display("[DECODE] PC=%04h OPCODE=LDX_IMM", reg_pc);
+                            opcode = cpubus.rdata;
+                            state  = cpu_state_t::OP1;
+                        }
+                    }
+                }
+                cpu_state_t::OP1: {
+                    case (opcode) {
+                        opcode_t::LDX_IMM: {
+                            reg_x    = cpubus.rdata;
+                            reg_p[1] = (cpubus.rdata == 0);
+                            reg_p[7] = cpubus.rdata[7];
+                            reg_pc   = reg_pc + 2;
+                            state    = cpu_state_t::FETCH;
+                        }
+                    }
+                }
             }
         }
     }
-
 }
