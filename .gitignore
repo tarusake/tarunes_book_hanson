@@ -7,3 +7,5 @@
 # Verilator
 obj_dir/
 wave.fst
+*.hex
+*.nes
