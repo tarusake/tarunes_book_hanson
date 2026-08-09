@@ -2,23 +2,31 @@ module top #(
     param PROM_PATH: string = "",
     param CROM_PATH: string = "",
 ) (
-    clk     : input  clock   ,
-    rst     : input  reset   ,
-    scanline: output logic<9>,
-    cycle   : output logic<9>,
-    pixel_r : output logic<8>,
-    pixel_g : output logic<8>,
-    pixel_b : output logic<8>,
+    clk         : input  clock    ,
+    rst         : input  reset    ,
+    scanline    : output logic<9> ,
+    cycle       : output logic<9> ,
+    pixel_r     : output logic<8> ,
+    pixel_g     : output logic<8> ,
+    pixel_b     : output logic<8> ,
+    hdmi_r      : output logic<8> ,
+    hdmi_g      : output logic<8> ,
+    hdmi_b      : output logic<8> ,
+    hdmi_hsync  : output logic    ,
+    hdmi_vsync  : output logic    ,
+    hdmi_de     : output logic    ,
+    hdmi_video_x: output logic<10>,
+    hdmi_video_y: output logic<10>,
 ) {
     var pixel_index: logic<6>;
 
-    inst cpubus    : bus_if::<8, 16>;
-    inst cpu_ppubus: bus_if::<8, 3>;
-    inst wrambus   : bus_if::<8, 11>;
-    inst prombus   : bus_if::<8, 15>;
-    inst ppubus    : bus_if::<8, 14>;
-    inst vrambus   : bus_if::<8, 11>;
-    inst crombus   : bus_if::<8, 13>;
+    inst cpubus     : bus_if::<8, 16>;
+    inst cpu_ppubus : bus_if::<8, 3>;
+    inst wrambus    : bus_if::<8, 11>;
+    inst prombus    : bus_if::<8, 15>;
+    inst ppubus     : bus_if::<8, 14>;
+    inst vrambus    : bus_if::<8, 11>;
+    inst crombus    : bus_if::<8, 13>;
     inst cpu_inst: cpu (
         clk   : clk   ,
         rst   : rst   ,
@@ -74,5 +82,20 @@ module top #(
         ppubus : ppubus ,
         crombus: crombus,
         vrambus: vrambus,
+    );
+    inst hdmi_scaler: hdmi_480p_scaler (
+        clk             : clk         ,
+        rst             : rst         ,
+        core_cycle      : cycle       ,
+        core_scanline   : scanline    ,
+        core_pixel_index: pixel_index ,
+        hdmi_r          : hdmi_r      ,
+        hdmi_g          : hdmi_g      ,
+        hdmi_b          : hdmi_b      ,
+        hdmi_hsync      : hdmi_hsync  ,
+        hdmi_vsync      : hdmi_vsync  ,
+        hdmi_de         : hdmi_de     ,
+        video_x         : hdmi_video_x,
+        video_y         : hdmi_video_y,
     );
 }

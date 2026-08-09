@@ -31,7 +31,7 @@ build: veryl-build
 	$(MAKE) -C obj_dir -f V$(TOP).mk
 
 run:
-	./obj_dir/V$(TOP)
+	./obj_dir/V$(TOP) $(ARGS)
 
 clean:
 	rm -rf obj_dir *.fst tb_top

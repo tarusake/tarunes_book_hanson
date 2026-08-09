@@ -1,0 +1,104 @@
+module hdmi_480p_scaler (
+    clk             : input  clock    ,
+    rst             : input  reset    ,
+    core_cycle      : input  logic<9> ,
+    core_scanline   : input  logic<9> ,
+    core_pixel_index: input  logic<6> ,
+    hdmi_r          : output logic<8> ,
+    hdmi_g          : output logic<8> ,
+    hdmi_b          : output logic<8> ,
+    hdmi_hsync      : output logic    ,
+    hdmi_vsync      : output logic    ,
+    hdmi_de         : output logic    ,
+    video_x         : output logic<10>,
+    video_y         : output logic<10>,
+) {
+    const FB_PIXELS         : u32       = 256 * 240;
+    const H_ACTIVE          : logic<10> = 10'd720;
+    const H_FRONT_PORCH     : logic<10> = 10'd16;
+    const H_SYNC            : logic<10> = 10'd62;
+    const H_TOTAL           : logic<10> = 10'd858;
+    const V_ACTIVE          : logic<10> = 10'd480;
+    const V_FRONT_PORCH     : logic<10> = 10'd9;
+    const V_SYNC            : logic<10> = 10'd6;
+    const V_TOTAL           : logic<10> = 10'd525;
+    const X_OFFSET          : logic<10> = 10'd104;
+    const SCALED_WIDTH      : logic<10> = 10'd512;
+    const BORDER_COLOR_INDEX: logic<6>  = 6'h0F;
+
+    const NES_PALETTE: logic<24> [64] = '{
+        24'h666666, 24'h002A88, 24'h1412A7, 24'h3B00A4, 24'h5C007E, 24'h6E0040, 24'h6C0600, 24'h561D00, 24'h333500,
+        24'h0B4800, 24'h005200, 24'h004F08, 24'h00404D, 24'h000000, 24'h000000, 24'h000000, 24'hADADAD, 24'h155FD9,
+        24'h4240FF, 24'h7527FE, 24'hA01ACC, 24'hB71E7B, 24'hB53120, 24'h994E00, 24'h6B6D00, 24'h388700, 24'h0C9300,
+        24'h008F32, 24'h007C8D, 24'h000000, 24'h000000, 24'h000000, 24'hFFFEFF, 24'h64B0FF, 24'h9290FF, 24'hC676FF,
+        24'hF36AFF, 24'hFE6ECC, 24'hFE8170, 24'hEA9E22, 24'hBCBE00, 24'h88D800, 24'h5CE430, 24'h45E082, 24'h48CDDE,
+        24'h4F4F4F, 24'h000000, 24'h000000, 24'hFFFEFF, 24'hC0DFFF, 24'hD3D2FF, 24'hE8C8FF, 24'hFBC2FF, 24'hFEC4EA,
+        24'hFECCC5, 24'hF7D8A5, 24'hE4E594, 24'hCFEE96, 24'hBDF4AB, 24'hB3F3CC, 24'hB5EBF2, 24'hB8B8B8, 24'h000000,
+        24'h000000,
+    };
+
+    var framebuffer  : logic<6>  [FB_PIXELS];
+    var h_count      : logic<10>            ;
+    var v_count      : logic<10>            ;
+    var core_visible : logic                ;
+    var active_area  : logic                ;
+    var scaled_area  : logic                ;
+    var write_addr   : logic<16>            ;
+    var scaled_x     : logic<10>            ;
+    var src_x        : logic<8>             ;
+    var src_y        : logic<8>             ;
+    var read_addr    : logic<16>            ;
+    var read_pixel   : logic<6>             ;
+    var palette_color: logic<24>            ;
+
+    assign core_visible = core_cycle <: 9'd256 && core_scanline <: 9'd240;
+    assign write_addr   = {core_scanline[7:0], 8'b0} + {8'b0, core_cycle[7:0]};
+
+    assign active_area   = h_count <: H_ACTIVE && v_count <: V_ACTIVE;
+    assign scaled_area   = active_area && h_count >= X_OFFSET && h_count <: X_OFFSET + SCALED_WIDTH;
+    assign scaled_x      = h_count - X_OFFSET;
+    assign src_x         = scaled_x[8:1];
+    assign src_y         = v_count[8:1];
+    assign read_addr     = {src_y, 8'b0} + {8'b0, src_x};
+    assign read_pixel    = if scaled_area ? framebuffer[read_addr] : BORDER_COLOR_INDEX;
+    assign palette_color = NES_PALETTE[read_pixel];
+
+    always_ff {
+        if_reset {
+            h_count    = 0;
+            v_count    = 0;
+            hdmi_r     = 0;
+            hdmi_g     = 0;
+            hdmi_b     = 0;
+            hdmi_hsync = 1;
+            hdmi_vsync = 1;
+            hdmi_de    = 0;
+            video_x    = 0;
+            video_y    = 0;
+        } else {
+            if core_visible {
+                framebuffer[write_addr] = core_pixel_index;
+            }
+
+            hdmi_r     = palette_color[23:16];
+            hdmi_g     = palette_color[15:8];
+            hdmi_b     = palette_color[7:0];
+            hdmi_de    = active_area;
+            hdmi_hsync = !(h_count >= H_ACTIVE + H_FRONT_PORCH && h_count <: H_ACTIVE + H_FRONT_PORCH + H_SYNC);
+            hdmi_vsync = !(v_count >= V_ACTIVE + V_FRONT_PORCH && v_count <: V_ACTIVE + V_FRONT_PORCH + V_SYNC);
+            video_x    = h_count;
+            video_y    = v_count;
+
+            if h_count == H_TOTAL - 10'd1 {
+                h_count = 0;
+                if v_count == V_TOTAL - 10'd1 {
+                    v_count = 0;
+                } else {
+                    v_count = v_count + 1;
+                }
+            } else {
+                h_count = h_count + 1;
+            }
+        }
+    }
+}
