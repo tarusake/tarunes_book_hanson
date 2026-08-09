@@ -10,8 +10,14 @@ module ppu (
     pixel_g    : output  logic                  <8>,
     pixel_b    : output  logic                  <8>,
 ) {
-    const PPUADDR_ADDR: logic<3> = 3'd6;
-    const PPUDATA_ADDR: logic<3> = 3'd7;
+    const PPUADDR_ADDR   : logic<3> = 3'd6;
+    const PPUDATA_ADDR   : logic<3> = 3'd7;
+    const VISIBLE_CYCLES : logic<9> = 256;
+    const VISIBLE_LINES  : logic<9> = 240;
+    const LAST_CYCLE     : logic<9> = 340;
+    const PRE_RENDER_LINE: logic<9> = 261;
+    const LAST_TILE_X    : logic<6> = 31;
+    const PREFETCH_CYCLE : logic<9> = 248;
 
     const NES_PALETTE: logic<24> [64] = '{
         24'h666666, 24'h002A88, 24'h1412A7, 24'h3B00A4, 24'h5C007E, 24'h6E0040, 24'h6C0600, 24'h561D00, 24'h333500,
@@ -29,6 +35,31 @@ module ppu (
     var reg_w          : logic         ;
     var reg_v          : logic<16>     ;
     var ppu_addr_render: logic<14>     ;
+    var visible        : logic         ;
+    var prefetch_first : logic         ;
+    var tile_fetch     : logic         ;
+    var tile_x         : logic<6>      ;
+    var tile_y         : logic<6>      ;
+    var next_tile_x    : logic<6>      ;
+    var next_tile_y    : logic<6>      ;
+    var chr_addr       : logic<14>     ;
+    var plane          : logic<8>  [2] ;
+    var plane_draw     : logic<8>  [2] ;
+    var fine_x         : logic<3>      ;
+    var fine_y_fetch   : logic<3>      ;
+    var color_2bit     : logic<2>      ;
+
+    assign visible        = cycle <: VISIBLE_CYCLES && scanline <: VISIBLE_LINES;
+    assign prefetch_first = scanline == PRE_RENDER_LINE && cycle >= PREFETCH_CYCLE && cycle <: VISIBLE_CYCLES;
+    assign tile_fetch     = visible || prefetch_first;
+
+    assign tile_x       = cycle[8:3];
+    assign tile_y       = scanline[8:3];
+    assign next_tile_x  = if (tile_x == LAST_TILE_X) ? 0 : tile_x + 1;
+    assign next_tile_y  = if prefetch_first ? 0 : if (tile_x == LAST_TILE_X) ? tile_y + 1 : tile_y;
+    assign fine_x       = 7 - cycle[2:0];
+    assign fine_y_fetch = if prefetch_first ? 0 : scanline[2:0];
+    assign color_2bit   = {plane_draw[1][fine_x], plane_draw[0][fine_x]};
 
     function is_palette_addr (
         addr: input logic<16>,
@@ -51,10 +82,9 @@ module ppu (
 
     always_ff {
         if_reset {
-            reg_w           = 0;
-            reg_v           = 0;
-            ppu_addr_render = 0;
-            palette_ram     = '{default: 8'h00};
+            reg_w       = 0;
+            reg_v       = 0;
+            palette_ram = '{default: 8'h00};
         } else if cpubus.wen {
             case (cpubus.addr) {
                 PPUADDR_ADDR: {
@@ -80,9 +110,9 @@ module ppu (
             cycle    = 0;
             scanline = 0;
         } else {
-            if (cycle == 340) {
+            if (cycle == LAST_CYCLE) {
                 cycle = 0;
-                if (scanline == 261) {
+                if (scanline == PRE_RENDER_LINE) {
                     scanline = 0;
                 } else {
                     scanline = scanline + 1;
@@ -93,16 +123,50 @@ module ppu (
         }
     }
 
+    always_ff {
+        if_reset {
+            ppu_addr_render = 0;
+            chr_addr        = 0;
+            plane           = '{default: 0};
+            plane_draw      = '{default: 0};
+        } else if tile_fetch {
+            case (cycle[2:0]) {
+                0: {
+                    let nt_addr        : logic<14> = 14'h2000 + next_tile_y * 32 + next_tile_x;
+                    ppu_addr_render = nt_addr;
+                }
+                2: {
+                    let tile_id        : logic<8> = ppubus.rdata;
+                    ppu_addr_render = tile_id * 16 + fine_y_fetch;
+                    chr_addr        = tile_id * 16 + fine_y_fetch;
+                }
+                3: {
+                    ppu_addr_render = chr_addr + 8;
+                }
+                4: {
+                    plane[0] = ppubus.rdata;
+                }
+                5: {
+                    plane[1] = ppubus.rdata;
+                }
+                7: {
+                    plane_draw[0] = plane[0];
+                    plane_draw[1] = plane[1];
+                }
+            }
+        }
+    }
+
     always_comb {
-        if (cycle <: 256 && scanline <: 240) {
-            pixel_index = {2'b10, cycle[7:4]};
+        if visible {
+            pixel_index = palette_ram[{3'b000, color_2bit}][5:0];
         } else {
             pixel_index = 6'h0F;
         }
-
-        palette_color = NES_PALETTE[pixel_index];
-        pixel_r       = palette_color[23:16];
-        pixel_g       = palette_color[15:8];
-        pixel_b       = palette_color[7:0];
     }
+
+    assign palette_color = NES_PALETTE[pixel_index];
+    assign pixel_r       = palette_color[23:16];
+    assign pixel_g       = palette_color[15:8];
+    assign pixel_b       = palette_color[7:0];
 }
