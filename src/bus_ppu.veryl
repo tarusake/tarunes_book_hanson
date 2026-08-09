@@ -1,0 +1,46 @@
+module bus_ppu (
+    clk    : input   clock                  ,
+    rst    : input   reset                  ,
+    ppubus : modport bus_if::<8, 14>::slave ,
+    crombus: modport bus_if::<8, 13>::master,
+    vrambus: modport bus_if::<8, 11>::master,
+) {
+    var sel_crom: logic;
+    var sel_vram: logic;
+
+    assign sel_crom = ppubus.addr <: 14'h2000;
+    assign sel_vram = ppubus.addr >= 14'h2000 && ppubus.addr <: 14'h3F00;
+
+    assign crombus.addr = if sel_crom ? ppubus.addr[12:0] : 'x;
+    assign vrambus.addr = if sel_vram ? ppubus.addr[10:0] : 'x;
+
+    assign vrambus.wdata = if sel_vram ? ppubus.wdata : 'x;
+    assign vrambus.wen   = if sel_vram ? ppubus.wen : 'x;
+
+    assign crombus.wdata = 0;
+    assign crombus.wen   = 0;
+
+    // 同期readの結果を返すため、選択信号も1clock遅延させる
+    var sel_crom_d: logic;
+    var sel_vram_d: logic;
+
+    always_ff {
+        if_reset {
+            sel_crom_d = 0;
+            sel_vram_d = 0;
+        } else {
+            sel_crom_d = sel_crom;
+            sel_vram_d = sel_vram;
+        }
+    }
+
+    always_comb {
+        if sel_crom_d {
+            ppubus.rdata = crombus.rdata;
+        } else if sel_vram_d {
+            ppubus.rdata = vrambus.rdata;
+        } else {
+            ppubus.rdata = 0;
+        }
+    }
+}

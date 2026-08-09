@@ -1,12 +1,13 @@
 module ppu (
-    clk        : input  clock   ,
-    rst        : input  reset   ,
-    scanline   : output logic<9>,
-    cycle      : output logic<9>,
-    pixel_index: output logic<6>,
-    pixel_r    : output logic<8>,
-    pixel_g    : output logic<8>,
-    pixel_b    : output logic<8>,
+    clk        : input   clock                     ,
+    rst        : input   reset                     ,
+    ppubus     : modport bus_if::<8, 14>::master   ,
+    scanline   : output  logic                  <9>,
+    cycle      : output  logic                  <9>,
+    pixel_index: output  logic                  <6>,
+    pixel_r    : output  logic                  <8>,
+    pixel_g    : output  logic                  <8>,
+    pixel_b    : output  logic                  <8>,
 ) {
     const NES_PALETTE: logic<24> [64] = '{
         24'h666666, 24'h002A88, 24'h1412A7, 24'h3B00A4, 24'h5C007E, 24'h6E0040, 24'h6C0600, 24'h561D00, 24'h333500,
@@ -20,6 +21,12 @@ module ppu (
     };
 
     var palette_color: logic<24>;
+
+    always_comb {
+        ppubus.addr  = 0;
+        ppubus.wdata = 0;
+        ppubus.wen   = 0;
+    }
 
     always_ff {
         if_reset {

@@ -1,5 +1,6 @@
 module top #(
     param PROM_PATH: string = "",
+    param CROM_PATH: string = "",
 ) (
     clk     : input  clock   ,
     rst     : input  reset   ,
@@ -14,6 +15,9 @@ module top #(
     inst cpubus  : bus_if::<8, 16>;
     inst wrambus : bus_if::<8, 11>;
     inst prombus : bus_if::<8, 15>;
+    inst ppubus  : bus_if::<8, 14>;
+    inst vrambus : bus_if::<8, 11>;
+    inst crombus : bus_if::<8, 13>;
     inst cpu_inst: cpu (
         clk   : clk   ,
         rst   : rst   ,
@@ -31,6 +35,18 @@ module top #(
         rst   : rst    ,
         membus: prombus,
     );
+    inst vram: memory::<8, 11> (
+        clk   : clk    ,
+        rst   : rst    ,
+        membus: vrambus,
+    );
+    inst crom: memory::<8, 13> #(
+        PATH: CROM_PATH,
+    ) (
+        clk   : clk    ,
+        rst   : rst    ,
+        membus: crombus,
+    );
     inst ubus: bus (
         clk    : clk    ,
         rst    : rst    ,
@@ -41,11 +57,19 @@ module top #(
     inst ppu_inst: ppu (
         clk        : clk        ,
         rst        : rst        ,
+        ppubus     : ppubus     ,
         scanline   : scanline   ,
         cycle      : cycle      ,
         pixel_index: pixel_index,
         pixel_r    : pixel_r    ,
         pixel_g    : pixel_g    ,
         pixel_b    : pixel_b    ,
+    );
+    inst ppu_bus: bus_ppu (
+        clk    : clk    ,
+        rst    : rst    ,
+        ppubus : ppubus ,
+        crombus: crombus,
+        vrambus: vrambus,
     );
 }
