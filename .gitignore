@@ -9,3 +9,10 @@ obj_dir/
 wave.fst
 *.hex
 *.nes
+
+# GOWIN
+impl/
+*.gprj.user
+*.vo
+*_tmp.v
+**/temp/
